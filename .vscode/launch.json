@@ -11,7 +11,7 @@
       "program": "./password-enum.py",
       "console": "integratedTerminal",
       "justMyCode": true,
-      "args": ["testTable", "testColumnName", "testColumnValue", "testField", "--ssl"]
+      "args": ["users", "username", "administrator", "password", "--ssl"]
     }
   ]
 }

