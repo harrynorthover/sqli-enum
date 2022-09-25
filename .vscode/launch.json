@@ -8,9 +8,10 @@
       "name": "Python: Current File",
       "type": "python",
       "request": "launch",
-      "program": "${file}",
+      "program": "./password-enum.py",
       "console": "integratedTerminal",
-      "justMyCode": true
+      "justMyCode": true,
+      "args": ["testTable", "testColumnName", "testColumnValue", "testField", "--ssl"]
     }
   ]
 }

