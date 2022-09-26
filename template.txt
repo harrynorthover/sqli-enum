@@ -1,5 +1,5 @@
 GET /filter HTTP/1.1
-Host: 0a200077045c0824c03e156300a800ac.web-security-academy.net
+Host: 0a1d00610373c54bc011804700820078.web-security-academy.net
 Cookie: TrackingId=xyz[[INJECTION_POINT]]; session=UYHRV9XYKEfDLShUUbvMrkIZ0ofL1jBd
 Cache-Control: max-age=0
 Sec-Ch-Ua: "Chromium";v="105", "Not)A;Brand";v="8"
