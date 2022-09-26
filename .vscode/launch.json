@@ -5,13 +5,22 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Current File",
+      "name": "password-enum: error",
       "type": "python",
       "request": "launch",
       "program": "./password-enum.py",
       "console": "integratedTerminal",
       "justMyCode": true,
       "args": ["users", "username", "administrator", "password", "--ssl"]
+    },
+    {
+      "name": "password-enum: conditional ui",
+      "type": "python",
+      "request": "launch",
+      "program": "./password-enum.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": ["users", "username", "administrator", "password", "--ssl", "--success=Welcome back"]
     }
   ]
 }
