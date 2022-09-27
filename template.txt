@@ -1,18 +1,3 @@
 GET /filter HTTP/1.1
-Host: 0abe00b6032c09c7c0314cfd00b000ab.web-security-academy.net
+Host: 0acf002e0495dbe2c0e70b1300d8007f.web-security-academy.net
 Cookie: TrackingId=xyz[[INJECTION_POINT]]; session=UYHRV9XYKEfDLShUUbvMrkIZ0ofL1jBd
-Cache-Control: max-age=0
-Sec-Ch-Ua: "Chromium";v="105", "Not)A;Brand";v="8"
-Sec-Ch-Ua-Mobile: ?0
-Sec-Ch-Ua-Platform: "macOS"
-Upgrade-Insecure-Requests: 1
-User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.5195.127 Safari/537.36
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
-Sec-Fetch-Site: none
-Sec-Fetch-Mode: navigate
-Sec-Fetch-User: ?1
-Sec-Fetch-Dest: document
-Accept-Encoding: gzip, deflate
-Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
-Connection: close
-
