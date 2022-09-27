@@ -177,7 +177,7 @@ def enumerateFieldValue(tableName, columnName, columnValue) -> None:
 
             if executeRequestAndReturnsError():
                 enumerated_value += val
-                print(f"{fieldName}({current_index}) = {enumerated_value}")
+                print(f"{fieldName}({current_index})\t = {enumerated_value}")
                 break
 
 
